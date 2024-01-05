@@ -1,0 +1,102 @@
+---
+title: Data Clean Up & Prep for Shiny App
+output:
+  html_document:
+---
+
+
+## Setup
+```{r Setup}
+
+library(ggplot2)
+library(plotly)
+library(tidyverse)
+library(scales) # for viz
+library(RColorBrewer) # for viz
+
+# For spatial work
+library(sf)
+library(mapview) # plotting
+library(leafpop) # for customizing popups on maps
+library(leaflet)
+```
+
+
+## Read-in CDPR data and combine
+Because the combined CDPR data file is so big, I split it into 5-year groupings.  So, these files need to be read in a bound back together before use in the Shiny App.
+```{r read in and combine}
+
+Cu90_94 <- read_rds(file = "./Data/CleanData/CDPRAppData/CDPRCu90_94.rds")
+Cu95_99 <- read_rds(file = "./Data/CleanData/CDPRAppData/CDPRCu95_99.rds")
+Cu00_04 <- read_rds(file = "./Data/CleanData/CDPRAppData/CDPRCu00_04.rds")
+Cu05_09 <- read_rds(file = "./Data/CleanData/CDPRAppData/CDPRCu05_09.rds")
+Cu10_14 <- read_rds(file = "./Data/CleanData/CDPRAppData/CDPRCu10_14.rds")
+Cu15_19 <- read_rds(file = "./Data/CleanData/CDPRAppData/CDPRCu15_19.rds")
+Cu20_21 <- read_rds(file = "./Data/CleanData/CDPRAppData/CDPRCu20_21.rds")
+
+
+CDPRCuApp <- bind_rows(Cu90_94, Cu95_99, Cu00_04, Cu05_09, Cu10_14, Cu15_19, Cu20_21)
+
+rm(Cu90_94, Cu95_99, Cu00_04, Cu05_09, Cu10_14, Cu15_19, Cu20_21)
+```
+
+
+## Read-in PLSS spatial data (with yearly-summed Cu App data merged) and combine
+Like the CDPR Cu Application data, I needed to save the plss data in yearly chunks.  Then I will re-bind these data back together before they can be used in the Shiny App.
+```{r read in and combine}
+
+plss_allCu_tr1990 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu1990.rds")
+plss_allCu_tr1991 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu1991.rds")
+plss_allCu_tr1992 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu1992.rds")
+plss_allCu_tr1993 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu1993.rds")
+plss_allCu_tr1994 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu1994.rds")
+plss_allCu_tr1995 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu1995.rds")
+plss_allCu_tr1996 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu1996.rds")
+plss_allCu_tr1997 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu1997.rds")
+plss_allCu_tr1998 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu1998.rds")
+plss_allCu_tr1999 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu1999.rds")
+plss_allCu_tr2000 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2000.rds")
+plss_allCu_tr2001 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2001.rds")
+plss_allCu_tr2002 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2002.rds")
+plss_allCu_tr2003 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2003.rds")
+plss_allCu_tr2004 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2004.rds")
+plss_allCu_tr2005 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2005.rds")
+plss_allCu_tr2006 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2006.rds")
+plss_allCu_tr2007 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2007.rds")
+plss_allCu_tr2008 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2008.rds")
+plss_allCu_tr2009 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2009.rds")
+plss_allCu_tr2010 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2010.rds")
+plss_allCu_tr2011 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2011.rds")
+plss_allCu_tr2012 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2012.rds")
+plss_allCu_tr2013 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2013.rds")
+plss_allCu_tr2014 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2014.rds")
+plss_allCu_tr2015 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2015.rds")
+plss_allCu_tr2016 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2016.rds")
+plss_allCu_tr2017 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2017.rds")
+plss_allCu_tr2018 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2018.rds")
+plss_allCu_tr2019 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2019.rds")
+plss_allCu_tr2020 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2020.rds")
+plss_allCu_tr2021 <- read_rds(file = "./Data/CleanData/SpatialData/plssTRCu2021.rds")
+
+
+
+
+plssTRCu <- bind_rows(plss_allCu_tr1990, plss_allCu_tr1991, plss_allCu_tr1992, plss_allCu_tr1993,
+                      plss_allCu_tr1994, plss_allCu_tr1995, plss_allCu_tr1996, plss_allCu_tr1997,
+                      plss_allCu_tr1998, plss_allCu_tr1999, plss_allCu_tr2000, plss_allCu_tr2001,
+                      plss_allCu_tr2002, plss_allCu_tr2003, plss_allCu_tr2004, plss_allCu_tr2005,
+                      plss_allCu_tr2006, plss_allCu_tr2007, plss_allCu_tr2008, plss_allCu_tr2009,
+                      plss_allCu_tr2010, plss_allCu_tr2011, plss_allCu_tr2012, plss_allCu_tr2013,
+                      plss_allCu_tr2014, plss_allCu_tr2015, plss_allCu_tr2016, plss_allCu_tr2017,
+                      plss_allCu_tr2018, plss_allCu_tr2019, plss_allCu_tr2020, plss_allCu_tr2021)
+
+rm(plss_allCu_tr1990, plss_allCu_tr1991, plss_allCu_tr1992, plss_allCu_tr1993, plss_allCu_tr1994, 
+   plss_allCu_tr1995, plss_allCu_tr1996, plss_allCu_tr1997, plss_allCu_tr1998, plss_allCu_tr1999, 
+   plss_allCu_tr2000, plss_allCu_tr2001, plss_allCu_tr2002, plss_allCu_tr2003, plss_allCu_tr2004, 
+   plss_allCu_tr2005, plss_allCu_tr2006, plss_allCu_tr2007, plss_allCu_tr2008, plss_allCu_tr2009,
+   plss_allCu_tr2010, plss_allCu_tr2011, plss_allCu_tr2012, plss_allCu_tr2013, plss_allCu_tr2014, 
+   plss_allCu_tr2015, plss_allCu_tr2016, plss_allCu_tr2017, plss_allCu_tr2018, plss_allCu_tr2019, 
+   plss_allCu_tr2020, plss_allCu_tr2021)
+
+```
+
