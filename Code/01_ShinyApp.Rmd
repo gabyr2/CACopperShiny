@@ -19,6 +19,11 @@ library(sf)
 library(mapview) # plotting
 library(leafpop) # for customizing popups on maps
 library(leaflet)
+
+# For Shiny App
+library(shiny)
+library(shinydashboard)
+# library(shinythemes)
 ```
 
 
@@ -98,5 +103,99 @@ rm(plss_allCu_tr1990, plss_allCu_tr1991, plss_allCu_tr1992, plss_allCu_tr1993, p
    plss_allCu_tr2015, plss_allCu_tr2016, plss_allCu_tr2017, plss_allCu_tr2018, plss_allCu_tr2019, 
    plss_allCu_tr2020, plss_allCu_tr2021)
 
+```
+
+### Code Chunk to test out plots:
+```{r}
+# static map
+ggplot() +
+  geom_sf(data = plssTRCu[plssTRCu$YEAR == 2021,], 
+          aes(geometry = geometry, fill = sum_kg_applied)) + 
+  theme_bw() + 
+  coord_sf() +
+  scale_fill_distiller(name = "Total Kilograms",
+                     labels = comma,
+                     trans = "reverse",
+                     palette = "Oranges")
+```
+
+
+
+# Shiny App
+
+## UI
+```{r}
+### Basic shiny app ui ###
+
+# ui <- fluidPage(
+#   selectInput(inputId = "year", label = "Select Application Year:",
+#               choices = unique(plssTRCu$YEAR)),
+#   plotOutput(outputId = "staticMap")
+# )
+
+
+
+### Shiny Dashboard App UI ###
+# requires header, sidebar, body
+
+header <- dashboardHeader(title = "Copper-based Pesticide Application in California", 
+                          titleWidth = 600)
+
+
+sidebar <- dashboardSidebar(
+  sidebarMenu(
+    menuItem("About", tabName = "about", icon = icon("readme")),
+    menuItem("State Map", tabName = "mapping", icon = icon("map")),
+    menuItem("Data Exploration", tabName = "explore", icon = icon("magnifying-glass"))
+  )
+)
+
+
+body <- dashboardBody(
+  tabItems(
+    tabItem(tabName = "about", 
+            h2("About this app"),
+            h4("a bunch of information about this app.  Include link for data source and note about ag-only applications included.  Maybe include a picture")),
+    tabItem(tabName = "mapping", 
+            h2("Create a map of copper-based pesticide applications for a selected year"),
+            fluidRow(selectInput(inputId = "year", label = "Select Application Year:",
+                         choices = unique(plssTRCu$YEAR)),
+            box(plotOutput(outputId = "staticMap")))),
+    tabItem(tabName = "explore",
+            h2("Explore the data"))
+  )
+)
+
+
+ui <- dashboardPage(header, sidebar, body)
+
+
+```
+
+
+## Server
+```{r}
+
+server <- function(input, output) {
+  output$staticMap <- renderPlot(
+    ggplot() +
+      geom_sf(data = plssTRCu[plssTRCu$YEAR == input$year,], 
+              aes(geometry = geometry, fill = sum_kg_applied)) + 
+      theme_bw() + 
+      coord_sf() +
+      scale_fill_distiller(name = "Total Kilograms",
+                           labels = comma,
+                           trans = "reverse",
+                           palette = "Oranges")
+  )
+}
+
+```
+
+## Run App
+```{r}
+server <- function(input, output){}
+
+shinyApp(ui, server)
 ```
 
