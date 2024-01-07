@@ -103,6 +103,13 @@ rm(plss_allCu_tr1990, plss_allCu_tr1991, plss_allCu_tr1992, plss_allCu_tr1993, p
    plss_allCu_tr2015, plss_allCu_tr2016, plss_allCu_tr2017, plss_allCu_tr2018, plss_allCu_tr2019, 
    plss_allCu_tr2020, plss_allCu_tr2021)
 
+plssTRCu$sum_kg_applied <- round(plssTRCu$sum_kg_applied, 1)
+plssTRCu <- plssTRCu %>%
+  rename("County" = "NAME",
+         "Township_Range" = "TownshipRa",
+         "Year" = "YEAR",
+         "Sum_Kg_Applied" = "sum_kg_applied")
+
 ```
 
 ### Code Chunk to test out plots:
@@ -117,6 +124,24 @@ ggplot() +
                      labels = comma,
                      trans = "reverse",
                      palette = "Oranges")
+
+# interactive map
+mapview(plssTRCu[plssTRCu$Year == 2021,],
+        zcol = "Sum_Kg_Applied",
+        col.region = brewer.pal(n = 9, "Oranges"),
+        na.color = "gray90", 
+        map.types = c("OpenStreetMap", "OpenTopoMap", "Esri.WorldImagery"),
+        layer.name = paste("Kilograms of Copper-based </br> Active Ingredient Applied"),
+        popup = popupTable(plssTRCu[plssTRCu$Year == 2021,],
+                           row.numbers = FALSE, feature.id = FALSE, 
+                           zcol = c("County", "Township_Range", "Sum_Kg_Applied")))
+
+
+
+# leaflet method
+leaflet(plssTRCu) %>%
+  addTiles(map = "OpenStreetMap") %>%
+  addPolygons()
 ```
 
 
@@ -158,11 +183,30 @@ body <- dashboardBody(
             h4("a bunch of information about this app.  Include link for data source and note about ag-only applications included.  Maybe include a picture")),
     tabItem(tabName = "mapping", 
             h2("Create a map of copper-based pesticide applications for a selected year"),
-            fluidRow(selectInput(inputId = "year", label = "Select Application Year:",
-                         choices = unique(plssTRCu$YEAR)),
-            box(plotOutput(outputId = "staticMap")))),
+            fluidRow(
+              column(width = 3, 
+                     selectInput(inputId = "year", label = "Select Application Year:",
+                                 choices = unique(plssTRCu$Year))),
+              column(width = 9, 
+                     box(mapviewOutput(outputId = "staticMap",
+                                        height = "400px")))
+                     )
+            ),
     tabItem(tabName = "explore",
-            h2("Explore the data"))
+            h2("Explore the data"),
+            fluidRow(
+              column(width = 4, selectInput(inputId = "county", label = "Select a County:",
+                                 choices = unique(CDPRCuApp$COUNTY_NAME), multiple = TRUE)),
+              column(width = 4, selectInput(inputId = "crop", label = "Select agricultural applications:",
+                                 choices = unique(CDPRCuApp$SITE_NAME), multiple = TRUE)),
+              column(width = 4, selectInput(inputId = "chem", label = "Select active ingredients:",
+                                 choices = unique(CDPRCuApp$CHEMICAL_NAME), multiple = TRUE))
+            ),
+            fluidRow(
+              column(width = 3, infoBoxOutput("kgAppBox")),
+              column(width = 3, infoBoxOutput("topChemBox")),
+              column(width = 3, infoBoxOutput("topCountyBox")),
+              column(width = 3, infoBoxOutput("topCropBox"))))
   )
 )
 
@@ -177,17 +221,37 @@ ui <- dashboardPage(header, sidebar, body)
 ```{r}
 
 server <- function(input, output) {
-  output$staticMap <- renderPlot(
-    ggplot() +
-      geom_sf(data = plssTRCu[plssTRCu$YEAR == input$year,], 
-              aes(geometry = geometry, fill = sum_kg_applied)) + 
-      theme_bw() + 
-      coord_sf() +
-      scale_fill_distiller(name = "Total Kilograms",
-                           labels = comma,
-                           trans = "reverse",
-                           palette = "Oranges")
-  )
+  
+  mapData <- reactive({
+    plssTRCu %>%
+      filter(Year == input$Year)
+  })
+  
+  output$staticMap <- renderLeaflet({
+    mapview(mapData(),
+        zcol = "Sum_Kg_Applied",
+        col.region = brewer.pal(n = 9, "Oranges"),
+        na.color = "gray90",
+        map.types = c("OpenStreetMap", "OpenTopoMap", "Esri.WorldImagery"),
+        layer.name = paste("Kilograms of Copper-based </br> Active Ingredient Applied"),
+        popup = popupTable(mapData(),
+                           row.numbers = FALSE, feature.id = FALSE,
+                           zcol = c("County", "Township_Range", "Sum_Kg_Applied")))@map
+  })
+  
+  
+  exploreData <- reactive({
+    CDPRCuApp %>%
+      filter(COUNTY_NAME %in% input$county,
+             SITE_NAME %in% input$crop,
+             CHEMICAL_NAME %in% input$chem)
+  })
+  
+  output$kgAppBox <- renderInfoBox({
+    infoBox(title = "Total kg of Copper-based pesticide applied", value = sum(exploreData()$KG_CHEMICAL_APPLIED))
+  })
+  
+  
 }
 
 ```
