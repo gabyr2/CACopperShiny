@@ -180,33 +180,50 @@ body <- dashboardBody(
   tabItems(
     tabItem(tabName = "about", 
             h2("About this app"),
-            h4("a bunch of information about this app.  Include link for data source and note about ag-only applications included.  Maybe include a picture")),
+            h4("This application is designed to allow the user to explore data collected on the application of copper-based pesticides in California from 1990 through 2021.  All data were collected from the California Pesticide Information Portal (CalPIP) produced by the California Department of Pesticide Regulation (CDPR).  Data were collected for the years 1990 through 2021, and for all copper-based active ingredient chemicals*.  Data were filtered to only include agricultural applications (i.e., not copper treatments on lumber).  On the State Map tab, you can map pesticide applications by Township-Range for a chosen year.  Under the Data Exploration tab, you can filter data by years, counties, crops, and active ingredient chemicals.  Given your selections, the dashboard will report the total kg applied, the most commonly applied active ingredient, the country with the most kg of applied chemical(s), and the crop with the most kg of applied chemical(s).  Two plots will also generate - one a boxplot to display applications across months of the year, and a bar plot to display the total kg of copper-based pesticides applied across years.  For additional information, visit: https://calpip.cdpr.ca.gov/main.cfm "),
+            h5("*There are 27 copper-based chemicals: Copper Hydroxide, Copper, Copper Sulfate (Basic), Copper Oxychloride, Copper Oxychloride Sulfate, Copper Sulfate (Pentahydrate), Copper Diammonium Diacetate Complex, Copper Carbonate, Basic, Copper Sulfate (Anhydrous), Copper Salts Of Fatty And Rosin Acids, Copper Naphthenate, Copper Ethanolamine Complexes, Mixed, Copper Oleate, Copper Ammonium Complex, Copper-Zinc Sulfate Complex, Copper Hydroxide - Triethanolamine Complex, Copper Sodium Sulfate-Phosphate Complex, Copper Ethylenediamine Complex, Copper Ammonium Carbonate, Copper Oxide (Ic), Copper Triethanolamine Complex, Lignin Sulfonic Acid, Copper Salt, Copper 8-Quinolinoleate, Copper Octanoate, Copper Sulfate Monohydrate, EDTA Copper Complex, and Copper Oxide (Ous).")
+            ),
+    
     tabItem(tabName = "mapping", 
             h2("Create a map of copper-based pesticide applications for a selected year"),
             fluidRow(
               column(width = 3, 
-                     selectInput(inputId = "year", label = "Select Application Year:",
+                     selectInput(inputId = "yearMap", label = "Select Application Year:",
                                  choices = unique(plssTRCu$Year))),
               column(width = 9, 
                      box(mapviewOutput(outputId = "staticMap",
                                         height = "400px")))
                      )
             ),
+    
     tabItem(tabName = "explore",
             h2("Explore the data"),
             fluidRow(
-              column(width = 4, selectInput(inputId = "county", label = "Select a County:",
-                                 choices = unique(CDPRCuApp$COUNTY_NAME), multiple = TRUE)),
-              column(width = 4, selectInput(inputId = "crop", label = "Select agricultural applications:",
-                                 choices = unique(CDPRCuApp$SITE_NAME), multiple = TRUE)),
-              column(width = 4, selectInput(inputId = "chem", label = "Select active ingredients:",
-                                 choices = unique(CDPRCuApp$CHEMICAL_NAME), multiple = TRUE))
+              selectInput(inputId = "year", label = "Select one or more years:",
+                                 choices = c("All", unique(CDPRCuApp$YEAR)), 
+                                 multiple = TRUE, size = 3, selectize = FALSE),
+              selectInput(inputId = "county", label = "Select a County:",
+                                 choices = c("All", sort(unique(CDPRCuApp$COUNTY_NAME))), 
+                                 multiple = TRUE, size = 3, selectize = FALSE),
+              selectInput(inputId = "crop", label = "Select agricultural applications:",
+                                 choices = c("All", sort(unique(CDPRCuApp$SITE_NAME))), 
+                                 multiple = TRUE, size = 3, selectize = FALSE),
+              selectInput(inputId = "chem", label = "Select active ingredients:",
+                                 choices = c("All", sort(unique(CDPRCuApp$CHEMICAL_NAME))), 
+                                 multiple = TRUE, size = 3, selectize = FALSE)
             ),
+            
             fluidRow(
               column(width = 3, infoBoxOutput("kgAppBox")),
               column(width = 3, infoBoxOutput("topChemBox")),
               column(width = 3, infoBoxOutput("topCountyBox")),
-              column(width = 3, infoBoxOutput("topCropBox"))))
+              column(width = 3, infoBoxOutput("topCropBox"))),
+            
+            fluidRow(
+              dataTableOutput("dataTable"),
+              column(width = 6, plotOutput("monthBoxplot")),
+              column(width = 6, plotOutput("yearBarplot"))
+            ))
   )
 )
 
@@ -222,9 +239,10 @@ ui <- dashboardPage(header, sidebar, body)
 
 server <- function(input, output) {
   
+  ## Map output
   mapData <- reactive({
     plssTRCu %>%
-      filter(Year == input$Year)
+      filter(Year == input$yearMap)
   })
   
   output$staticMap <- renderLeaflet({
@@ -239,18 +257,74 @@ server <- function(input, output) {
                            zcol = c("County", "Township_Range", "Sum_Kg_Applied")))@map
   })
   
-  
+  ## InfoBoxes and plots outputs
   exploreData <- reactive({
-    CDPRCuApp %>%
-      filter(COUNTY_NAME %in% input$county,
-             SITE_NAME %in% input$crop,
-             CHEMICAL_NAME %in% input$chem)
+    filtered <- CDPRCuApp
+    if (input$year != "All") {
+      filtered <- filtered %>%
+        filter(YEAR %in% input$year)
+    }
+    
+    if(input$county != "All") {
+      filtered <- filtered %>%
+        filter(COUNTY_NAME %in% input$county)
+    }
+    
+    if(input$crop != "All") {
+      filtered <- filtered %>%
+        filter(SITE_NAME %in% input$crop)
+    }
+    
+    if(input$chem != "All") {
+      filtered <- filtered %>% 
+        filter(CHEMICAL_NAME %in% input$chem)
+    }
+    
+    # filtered
+  
   })
+  
   
   output$kgAppBox <- renderInfoBox({
-    infoBox(title = "Total kg of Copper-based pesticide applied", value = sum(exploreData()$KG_CHEMICAL_APPLIED))
+    data <- exploreData()
+    infoBox(title = "Total kg of Copper-based pesticide applied", value = round(sum(data$KG_CHEMICAL_APPLIED), 2))
   })
   
+  output$topChemBox <- renderInfoBox({
+    data <- exploreData()
+    infoBox(title = "Chemical most applied", 
+            value = data %>% 
+              group_by(CHEMICAL_NAME) %>% 
+              summarise(sum = sum(KG_CHEMICAL_APPLIED)) %>%
+              slice_max(sum, n = 1) %>%
+              pull(CHEMICAL_NAME))
+  })
+  
+  output$topCountyBox <- renderInfoBox({
+    data <- exploreData()
+    infoBox(title = "County with greatest applications",
+            value = data %>%
+              group_by(COUNTY_NAME) %>%
+              summarize(sum = sum(KG_CHEMICAL_APPLIED)) %>%
+              slice_max(sum, n = 1) %>%
+              pull(COUNTY_NAME))
+  })
+  
+  output$topCropBox <- renderInfoBox({
+    data <- exploreData()
+    infoBox(title = "Crop with most applications",
+            value = data %>%
+              group_by(SITE_NAME) %>%
+              summarize(sum = sum(KG_CHEMICAL_APPLIED)) %>%
+              slice_max(sum, n = 1) %>%
+              pull(SITE_NAME))
+  })
+  
+  output$dataTable <- renderDataTable({
+    data <- exploreData()
+    
+    data}
+  )
   
 }
 
